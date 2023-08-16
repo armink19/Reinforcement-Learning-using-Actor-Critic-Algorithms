@@ -299,7 +299,7 @@ plt.plot(running_rewards, label="running rewrds")
 plt.legend()
 plt.savefig(os.path.join(folder_name, "running reward.png"))
 
-plt.figure()
+plt.figure(figsize=(30, 5))
 plt.plot(min_distances, "-o", label="min distances")
 plt.plot(max_distances, "-o", label="max distances")
 for i, (min_dist, max_dist) in enumerate(zip(min_distances, max_distances)):
