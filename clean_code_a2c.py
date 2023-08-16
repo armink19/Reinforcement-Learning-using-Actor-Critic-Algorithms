@@ -254,7 +254,7 @@ for episode in range(NUM_EPISODES):
 folder_name = str(time.time())
 os.mkdir(folder_name)
 
-plt.plot(running_rewards, label="running rewrds")
+plt.plot(running_rewards, label="running rewards")
 plt.legend()
 plt.savefig(os.path.join(folder_name, "running reward.png"))
 
