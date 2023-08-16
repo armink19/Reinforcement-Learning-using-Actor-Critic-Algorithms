@@ -68,11 +68,9 @@ git clone https://github.com/openai/robogym.git
 cd robogym
 ```
 
-Edit `setup.py` to comment out the line `"mujoco-py==2.0.2.13",`:
+Edit `setup.py` by replacing line the line `"mujoco-py==2.0.2.13" with "mujoco-py==2.1.2.14" ,`:
 
-```bash
-sed -i 's/"mujoco-py==2.0.2.13",/#"mujoco-py==2.1.2.14",/g' setup.py
-```
+
 
 Install RoboGym:
 
