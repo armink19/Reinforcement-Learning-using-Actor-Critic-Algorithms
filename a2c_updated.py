@@ -13,8 +13,8 @@ import time
 LR_ACTOR = 0.01  # Learning rate for the actor network
 LR_CRITIC = 0.01  # Learning rate for the critic network
 GAMMA = 0.99  # Discount factor
-NUM_EPISODES = 280  # Number of episodes
-MAX_STEPS = 15  # Maximum number of steps per episode
+NUM_EPISODES = 1000  # Number of episodes
+MAX_STEPS = 50  # Maximum number of steps per episode
 EPSILON = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
 
 
