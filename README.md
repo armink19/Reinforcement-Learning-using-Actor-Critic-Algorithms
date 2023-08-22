@@ -1,8 +1,8 @@
-# a2c_updated
+# Reinforcement Learning using Actor Critic Algorithms
 
 ## Installation Guide for RoboGym with MuJoCo
 
-This guide provides step-by-step instructions for installing and setting up RoboGym with MuJoCo on your system.
+This guide provides step-by-step instructions for installing and setting up RoboGym with MuJoCo on the UL HPC platform.
 
 ### Prerequisites
 
