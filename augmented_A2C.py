@@ -212,7 +212,7 @@ for episode in range(NUM_EPISODES):
             critic_losses = []
             for log_prob, value, ret in history:
                 advantage = ret - value
-                actor_losses.append(-log_prob * advantage)  # actor loss
+                actor_losses.append(-log_prob * advantage) 
                 critic_losses.append(
                     agent.loss(tf.expand_dims(value, 0), tf.expand_dims(ret, 0))
                 )
@@ -234,24 +234,18 @@ for episode in range(NUM_EPISODES):
             max_distances.append(max_distance)
 
 
-
 folder_name = str(time.time())
 os.mkdir(folder_name)
-
-plt.plot(running_rewards, label="running rewards")
+plt.style.use('seaborn')
+plt.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
+plt.xlabel('Episode')
+plt.ylabel('Value')
+plt.title('A2C Algorithm with State Augmentation Performance')
 plt.legend()
-plt.savefig(os.path.join(folder_name, "running reward.png"))
-
-plt.figure(figsize=(30, 5))
-plt.plot(min_distances, "-o", label="min distances")
-plt.plot(max_distances, "-o", label="max distances")
-for i, (min_dist, max_dist) in enumerate(zip(min_distances, max_distances)):
-    plt.plot((i,i), (min_dist, max_dist), "--", color="#444444")
-plt.legend()
-plt.savefig(os.path.join(folder_name, "min dis.png"))
+plt.savefig(os.path.join(folder_name, "plot.png"))
 
 with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
-        f.write("Domain Augmentation")
+        f.write("Domain Augmentation A2C")
         f.write('\n')
         f.write("LR_ACTOR: "+ str(LR_ACTOR))
         f.write('\n')
@@ -263,27 +257,4 @@ with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
         f.write('\n')
         f.write("MAX_STEPS: "+str(MAX_STEPS))
         f.write('\n')
-
-
-import matplotlib.pyplot as plt
-
-# Set global style for plots
-plt.style.use('seaborn')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# Plot running rewards (smoothed)
-ax.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
-
-
-# Set axis labels and title
-ax.set_xlabel('Episode')
-ax.set_ylabel('Value')
-ax.set_title('A2C Algorithm with State Augmentation Performance')
-
-# Add legend
-ax.legend()
-
-# Show the plot
-plt.savefig(os.path.join(folder_name, "plot.png"))
+        f.write("Reward: "+str(running_reward))
