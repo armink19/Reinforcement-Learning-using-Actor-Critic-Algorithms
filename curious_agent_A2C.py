@@ -5,7 +5,7 @@ from tensorflow.python.keras.layers import Dense, Input
 from tensorflow.python.keras.models import Model
 import os
 import time
-
+import matplotlib.pyplot as plt
 # Hyperparameters
 LR_ACTOR = 0.01
 LR_CRITIC = 0.01
@@ -16,7 +16,7 @@ EPSILON = np.finfo(np.float32).eps.item()
 
 # Define the Actor-Critic network
 def build_actor_critic(state_dim, action_dim):
-    input_state = Input(shape=(state_dim))
+    input_state = Input(shape=(state_dim[1]*3))
     dense1 = Dense(64, activation='relu')(input_state)
     dense2 = Dense(64, activation='relu')(dense1)
     output_actions = []
@@ -47,51 +47,32 @@ class CuriousA2CAgent:
         self.eta = eta
        
     def build_forward_model(self, state_dim, action_dim):
-        input_state = Input(shape=(state_dim[0],))
-        input_action = Input(shape=action_dim[:1])
-        concat_input = tf.concat([input_state, input_action], axis=-1)
-        dense1 = Dense(64, activation='relu')(concat_input)
+        input_layer = Input(shape=(12,))
+        dense1 = Dense(64, activation='relu')(input_layer)
         dense2 = Dense(64, activation='relu')(dense1)
-        predicted_next_state = Dense(state_dim[0], activation='linear')(dense2)
-        forward_model = Model(inputs=[input_state, input_action], outputs=predicted_next_state)
+        predicted_next_state = Dense(state_dim[1], activation='linear')(dense2)
+        forward_model = Model(inputs=input_layer, outputs=predicted_next_state)
         forward_model.summary()
         return forward_model
 
     def get_curiosity_reward(self, state, next_state, action):
-        predicted_next_state = self.forward_model([state['obj_pos'], action])
-        prediction_error = tf.reduce_sum(tf.square(predicted_next_state - next_state), axis=-1)
+        state = tf.concat((state['obj_pos'].ravel(),state['gripper_pos'],tf.convert_to_tensor(action)), axis=-1)
+        state= tf.expand_dims(state,axis=0)
+        predicted_next_state = self.forward_model(state)
+        prediction_error = tf.reduce_sum(tf.square(predicted_next_state - next_state['gripper_pos']), axis=-1)
         intrinsic_reward = self.eta * prediction_error
         return intrinsic_reward
         
-    """  def get_curiosity_reward(self, state, next_state, action):
-        #state = np.expand_dims(state, axis=0)  # Add a batch dimension
-        obj_pos = state['obj_pos']
-        gripper_pos = state['gripper_pos']
-        gripper_pos = np.expand_dims(gripper_pos, axis=0)
-        target_pos = state['goal_obj_pos']
-        state = np.concatenate([gripper_pos, obj_pos, target_pos], axis=0)
-        action = np.expand_dims(action, axis=0)  # Add a batch dimension
-
-        reshaped_state = state.reshape(-1, 1)  # Reshape state to (num_samples, 3)
-        reshaped_action = action.reshape(-1, 3)  # Reshape action to (num_samples, 3)
-        reshaped_action= np.expand_dims(reshaped_action,axis=0)
-        combined_input = np.concatenate((reshaped_state, action), axis=1)  # Concatenate along axis 1
-        predicted_next_state = self.forward_model(combined_input) 
-        prediction_error = np.mean(np.square(predicted_next_state - next_state))
-
-        curiosity_reward = self.eta * prediction_error
-        return curiosity_reward """
 
     def get_action(self, state):
         obj_pos = state['obj_pos']
         gripper_pos = state['gripper_pos']
         gripper_pos = np.expand_dims(gripper_pos, axis=0)
         target_pos = state['goal_obj_pos']
-        input_array = np.concatenate([gripper_pos, obj_pos, target_pos], axis=0)
+        input_array = np.concatenate([gripper_pos, obj_pos, target_pos], axis=1)
         state_tensor = tf.convert_to_tensor(input_array, dtype=tf.float64)
-        tt= state['obj_pos']
-        tt= np.expand_dims(tt,axis=0)
-        actor_output = self.actor(tt)
+        actor_output = self.actor(state_tensor)
+
 
         actions = []
         best_action_probs = []
@@ -100,13 +81,12 @@ class CuriousA2CAgent:
             arr_sum = np.sum(arr_numpy)
             if arr_sum != 0:
                 arr_prob = arr_numpy / arr_sum
-                action = np.random.choice(len(arr_prob), 1, p=np.sum(arr_prob))[0]
-                actions.append(action)
+                action = np.random.choice(len(arr_prob), 1, p=arr_prob)[0]
                 best_action_probs.append(arr[0, action])
             else:
                 action = np.random.choice(len(arr_numpy), 1)[0]
-                actions.append(action)
                 best_action_probs.append(arr[0, action])
+            actions.append(action)
 
         critic_value = self.critic(state_tensor)
 
@@ -162,7 +142,7 @@ action_dim = env.action_space.nvec
 
 # Create the A2C agent with curiosity-driven exploration
 running_reward = 0
-curious_agent = CuriousA2CAgent(state_dim, action_dim=action_dim, eta=0.01)
+curious_agent = CuriousA2CAgent(state_dim, action_dim, eta=0.01)
 running_rewards = []
 # Training loop
 for episode in range(NUM_EPISODES):
@@ -177,9 +157,13 @@ for episode in range(NUM_EPISODES):
         with tf.GradientTape() as critic_tape:
             for step in range(MAX_STEPS):
                 action, action_prob, critic_value = curious_agent.get_action(state)
+              
                 next_state, _, _, _ = env.step(action)
 
                 reward, distance = reward_func(state['obj_pos'], state['gripper_pos'])
+
+                curiosity_rewards = curious_agent.get_curiosity_reward(state, next_state, action)
+                reward += curiosity_rewards.numpy()
                 action_probs.append(tf.math.log(action_prob))
                 critic_values.append(critic_value)
                 rewards_history.append(reward)
@@ -218,12 +202,11 @@ for episode in range(NUM_EPISODES):
             critic_values.clear()
             rewards_history.clear()
 
-            curiosity_rewards = curious_agent.get_curiosity_reward(state, next_state, action)
-            total_rewards = np.array(rewards_history) + curiosity_rewards.numpy()
+            
 
             template = "running reward: {:.2f} at episode {}"
             
-            print(template.format(running_reward, episode))
+            print(template.format(running_reward[0], episode))
             running_rewards.append(running_reward)
            
 
@@ -231,20 +214,15 @@ for episode in range(NUM_EPISODES):
 folder_name = str(time.time())
 os.mkdir(folder_name)
 plt.style.use('seaborn')
-plt.plot(running_rewards, label="running rewards", color="blue")
+plt.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
+plt.xlabel('Episode')
+plt.ylabel('Value')
+plt.title('A2C Algorithm Performance using Curiosity Driven Exploration')
 plt.legend()
-plt.savefig(os.path.join(folder_name, "running reward.png"))
-
-""" plt.figure(figsize=(30, 5))
-plt.plot(min_distances, "-o", label="min distances")
-plt.plot(max_distances, "-o", label="max distances")
-for i, (min_dist, max_dist) in enumerate(zip(min_distances, max_distances)):
-    plt.plot((i,i), (min_dist, max_dist), "--", color="#444444")
-plt.legend()
-plt.savefig(os.path.join(folder_name, "min dis.png")) """
+plt.savefig(os.path.join(folder_name, "plot.png"))
 
 with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
-        f.write("Basic A2C")
+        f.write("Curiosity driven exploration A2C")
         f.write('\n')
         f.write("LR_ACTOR: "+ str(LR_ACTOR))
         f.write('\n')
@@ -256,28 +234,9 @@ with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
         f.write('\n')
         f.write("MAX_STEPS: "+str(MAX_STEPS))
         f.write('\n')
-        f.write("Rewward: "+str(running_reward))
+        f.write("Reward: "+str(running_reward))
 
 
-import matplotlib.pyplot as plt
-
-# Set global style for plots
-plt.style.use('seaborn')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# Plot running rewards (smoothed)
-ax.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
 
 
-# Set axis labels and title
-ax.set_xlabel('Episode')
-ax.set_ylabel('Value')
-ax.set_title('A2C Algorithm Performance')
 
-# Add legend
-ax.legend()
-
-# Show the plot
-plt.savefig(os.path.join(folder_name, "plot.png"))
