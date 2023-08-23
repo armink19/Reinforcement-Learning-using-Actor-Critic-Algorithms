@@ -1,10 +1,8 @@
 import numpy as np
 import tensorflow as tf
-from tensorflow import convert_to_tensor
 from robogym.envs.rearrange.blocks_train import make_env
-from tensorflow.python.keras.layers import Dense, Input , Flatten
+from tensorflow.python.keras.layers import Dense, Input 
 from tensorflow.python.keras.models import Model
-from tensorflow.python.keras.optimizers import adam_v2
 import matplotlib.pyplot as plt
 import os
 import time
@@ -87,8 +85,6 @@ class A2CAgent:
 
 def reward_func(obj_pos, gripper_pos):
     distance = np.sqrt(np.sum((obj_pos-gripper_pos)**2))
-  
-
     return 2**(-distance), distance
 
 
@@ -99,7 +95,7 @@ env = make_env(
         'success_reward': 5.0,
         'success_pause_range_s': [0.0, 0.5],
         'max_timesteps_per_goal_per_obj': 600,
-        'vision': True,  # use False if you don't want to use vision observations
+        'vision': False,  # use False if you don't want to use vision observations
         'vision_args': {
             'image_size': 200,
             'camera_names': ['vision_cam_front'],
@@ -115,7 +111,7 @@ env = make_env(
     parameters={
         'simulation_params': {
             'num_objects': 1,
-            'max_num_objects': 1,
+            'max_num_objects': 8,
             'object_size': 0.0254,
             'used_table_portion': 1.0,
             'goal_distance_ratio': 1.0,
@@ -171,7 +167,7 @@ for episode in range(NUM_EPISODES):
                 action,action_prob,critic_value = agent.get_action(state)
                 
                 # Take a step in the environment
-                next_state, reward, done, _ = env.step(action)
+                next_state, _, _, _ = env.step(action)
 
                 reward, distance = reward_func(state['obj_pos'],state['gripper_pos'])
                 action_probs.append(tf.math.log(action_prob))
@@ -221,27 +217,20 @@ for episode in range(NUM_EPISODES):
 
             
 
-    # if running_reward > 195:  # Condition to consider the task solved
-    #     print("Solved at episode {}!".format(episode))
-    #     break
 
 folder_name = str(time.time())
 os.mkdir(folder_name)
-
-plt.plot(running_rewards, label="running rewards")
+plt.style.use('seaborn')
+plt.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
+plt.xlabel('Episode')
+plt.ylabel('Value')
+plt.title('A2C Algorithm with Domain Randomization Performance')
 plt.legend()
-plt.savefig(os.path.join(folder_name, "running reward.png"))
-
-plt.figure(figsize=(30, 5))
-plt.plot(min_distances, "-o", label="min distances")
-plt.plot(max_distances, "-o", label="max distances")
-for i, (min_dist, max_dist) in enumerate(zip(min_distances, max_distances)):
-    plt.plot((i,i), (min_dist, max_dist), "--", color="#444444")
-plt.legend()
-plt.savefig(os.path.join(folder_name, "min dis.png"))
+plt.savefig(os.path.join(folder_name, "plot.png"))
 
 with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
-        f.write("Domain randomization")
+        f.write("Domain randomization A2C")
+        f.write('\n')
         f.write("LR_ACTOR: "+ str(LR_ACTOR))
         f.write('\n')
         f.write("LR_CRITIC: "+str(LR_CRITIC))
@@ -252,26 +241,6 @@ with open(os.path.join(folder_name, "hyperparameters.txt"), 'w') as f:
         f.write('\n')
         f.write("MAX_STEPS: "+str(MAX_STEPS))
         f.write('\n')
-
-import matplotlib.pyplot as plt
-
-# Set global style for plots
-plt.style.use('seaborn')
-
-# Create a figure and axis
-fig, ax = plt.subplots()
-
-# Plot running rewards (smoothed)
-ax.plot(running_rewards, label='Running Reward', color='blue', linewidth=2)
+        f.write("Reward: "+str(running_reward))
 
 
-# Set axis labels and title
-ax.set_xlabel('Episode')
-ax.set_ylabel('Value')
-ax.set_title('A2C Algorithm with Domain Randomization Performance')
-
-# Add legend
-ax.legend()
-
-# Show the plot
-plt.savefig(os.path.join(folder_name, "plot.png"))
